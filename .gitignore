@@ -1,0 +1,10 @@
+alembic/versions/__pycache__/4ca1e67b9ec5_add_tasks.cpython-312.pyc
+alembic/versions/__pycache__/e1dcd89bf2aa_add_tasks.cpython-312.pyc
+alembic/__pycache__/env.cpython-312.pyc
+configs/__pycache__/database.cpython-312.pyc
+configs/__pycache__/environment.cpython-312.pyc
+models/__pycache__/TaskModel.cpython-312.pyc
+routers/__pycache__/tasks.cpython-312.pyc
+schemas/__pycache__/tasks.cpython-312.pyc
+services/__pycache__/tasks.cpython-312.pyc
+__pycache__/main.cpython-312.pyc

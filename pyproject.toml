@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "resume"
+version = "0.1.0"
+description = ""
+authors = ["FourZd <shogo.ryaskov@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.111.0"
+uvicorn = "^0.29.0"
+sqlalchemy = "^2.0.30"
+asyncpg = "^0.29.0"
+alembic = "^1.13.1"
+psycopg2-binary = "^2.9.9"
+pydantic-settings = "^2.2.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
