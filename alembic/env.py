@@ -4,7 +4,7 @@ from alembic import context
 from configs.environment import get_environment_variables
 from configs.database import Base
 from models.TaskModel import Task
-
+from models.TaskCount import TaskCounter
 config = context.config
 
 if config.config_file_name is not None:

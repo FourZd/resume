@@ -15,10 +15,9 @@ class TaskRequest(BaseModel):
     user_id: int
 
 
-class TaskCount(BaseModel):
+class TaskCountResponse(BaseModel):
     active_tasks: List[Task]
     created_count: int
-    active_count: int
     completed_count: int
 
 
