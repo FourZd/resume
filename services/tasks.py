@@ -2,6 +2,9 @@ from repository.task_repository import TaskRepository
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
+# Эту логику тоже можно вынести в отдельный метод дабы не повторяться, но думаю это уже будет ломать восприятие
+# await self.repository.update_or_create_counter(self.user_id, created_increment=-1, completed_increment=-1 if is_task_completed else 0)
+# await self.repository.commit_changes()
 
 class TaskService:
     def __init__(self, repository: TaskRepository, user_id: int):
@@ -18,28 +21,28 @@ class TaskService:
         }
 
     async def add_task(self, description: str):
-        await self._manage_old_tasks(self.user_id)
-        task = await self.repository.create_tasks(self.user_id, [description])
-        task = task[0]
-        await self.repository.update_or_create_counter(self.user_id, created_increment=1)
-        await self.repository.commit_changes()
-        return task
+        tasks = await self._add_tasks([description])
+        return tasks[0]
 
     async def add_multiple_tasks(self, descriptions: List[str]):
         if len(descriptions) != 5:
             raise ValueError("Exactly 5 descriptions are required")
+        return await self._add_tasks(descriptions)
+
+    async def _add_tasks(self, descriptions: List[str]):
         await self._manage_old_tasks(self.user_id, new_tasks_count=len(descriptions))
         tasks = await self.repository.create_tasks(self.user_id, descriptions)
         await self.repository.update_or_create_counter(self.user_id, created_increment=len(descriptions))
         await self.repository.commit_changes()
         return tasks
-
+    
     async def complete_task(self, task_id: int):
-        task = await self.repository.update_tasks_completion([task_id], self.user_id)
-        if task:
+        tasks = await self.repository.update_tasks_completion([task_id], self.user_id)
+        if tasks:
             await self.repository.update_or_create_counter(self.user_id, completed_increment=1)
             await self.repository.commit_changes()
-        return task[0]
+            return tasks[0]
+        return None
 
     async def remove_task(self, task_id: int):
         success, is_task_completed = await self.repository.delete_task(task_id, self.user_id)
