@@ -4,23 +4,20 @@ from models.TaskCount import TaskCounter
 from sqlalchemy.future import select
 from datetime import datetime
 from typing import List
-
+from sqlalchemy import func
 
 class TaskRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
     
-    async def create_task(self, user_id: int, description: str):
-        task = Task(user_id=user_id, description=description, created_at=datetime.now(), completed=False)
-        self.db.add(task)
-        await self.db.commit()
-        return task
-
     async def create_tasks(self, user_id: int, descriptions: List[str]):
+        await self.manage_old_tasks(user_id, len(descriptions))
+        
         tasks = [Task(user_id=user_id, description=desc, created_at=datetime.now(), completed=False) for desc in descriptions]
         self.db.add_all(tasks)
         await self.db.commit()
-        return tasks
+        
+        return tasks if len(tasks) > 1 else tasks[0]
     
     async def get_active_tasks(self, user_id: int):
         result = await self.db.execute(select(Task).where(Task.user_id == user_id, Task.completed == False))
@@ -57,4 +54,13 @@ class TaskRepository:
             await self.db.commit()
             return True, is_task_completed
         return False, None
+    
+    async def manage_old_tasks(self, user_id: int, new_tasks_count=1):
+        active_tasks = await self.get_active_tasks(user_id)
+        tasks_to_complete = len(active_tasks) + new_tasks_count - 10
+        if tasks_to_complete > 0:
+            for task in sorted(active_tasks, key=lambda x: x.created_at)[:tasks_to_complete]:
+                task.completed = True
+            await self.update_or_create_counter(user_id, completed_increment=tasks_to_complete)
+            await self.db.commit()
     

@@ -16,9 +16,9 @@ class TaskService:
             "created_count": task_counter.total_created if task_counter else 0,
             "completed_count": task_counter.total_completed if task_counter else 0
         }
-    
+
     async def add_task(self, description: str):
-        task = await self.repository.create_task(self.user_id, description)
+        task = await self.repository.create_tasks(self.user_id, [description])
         await self.repository.update_or_create_counter(self.user_id, created_increment=1)
         return task
 
@@ -28,7 +28,7 @@ class TaskService:
         tasks = await self.repository.create_tasks(self.user_id, descriptions)
         await self.repository.update_or_create_counter(self.user_id, created_increment=len(descriptions))
         return tasks
-        
+
     async def complete_task(self, task_id: int):
         task = await self.repository.update_task_completion(task_id, self.user_id)
         if task:
