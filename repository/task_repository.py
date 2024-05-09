@@ -4,20 +4,21 @@ from models.TaskCount import TaskCounter
 from sqlalchemy.future import select
 from datetime import datetime
 from typing import List
-from sqlalchemy import func
+from sqlalchemy import update
 
 class TaskRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
     
-    async def create_tasks(self, user_id: int, descriptions: List[str]):
-        await self.manage_old_tasks(user_id, len(descriptions))
-        
+    async def commit_changes(self):
+        await self.db.commit()
+
+    async def create_tasks(self, user_id: int, descriptions: List[str]):        
         tasks = [Task(user_id=user_id, description=desc, created_at=datetime.now(), completed=False) for desc in descriptions]
         self.db.add_all(tasks)
-        await self.db.commit()
+        await self.db.flush()
         
-        return tasks if len(tasks) > 1 else tasks[0]
+        return tasks
     
     async def get_active_tasks(self, user_id: int):
         result = await self.db.execute(select(Task).where(Task.user_id == user_id, Task.completed == False))
@@ -28,13 +29,22 @@ class TaskRepository:
             select(TaskCounter).where(TaskCounter.user_id == user_id)
         )
     
-    async def update_task_completion(self, task_id: int, user_id: int):
-        task = await self.db.get(Task, task_id)
-        if task and task.user_id == user_id:
-            task.completed = True
-            await self.db.commit()
-            return task
-        return None
+    async def update_tasks_completion(self, task_ids: List[int], user_id: int):
+        update_stmt = (
+            update(Task)
+            .where(Task.id.in_(task_ids))
+            .where(Task.user_id == user_id)
+            .values(completed=True)
+        )
+        result = await self.db.execute(update_stmt)
+        await self.db.flush()
+        
+        if result.rowcount > 0:
+            updated_tasks = await self.db.execute(
+                select(Task).where(Task.id.in_(task_ids))
+            )
+            return updated_tasks.scalars().all()
+        return []
 
     async def update_or_create_counter(self, user_id: int, created_increment=0, completed_increment=0):
         counter = await self.get_task_counter(user_id)
@@ -43,7 +53,7 @@ class TaskRepository:
             self.db.add(counter)
         counter.total_created += created_increment
         counter.total_completed += completed_increment
-        await self.db.commit()
+        await self.db.flush()
         return counter
     
     async def delete_task(self, task_id: int, user_id: int):
@@ -51,16 +61,9 @@ class TaskRepository:
         if task and task.user_id == user_id:
             is_task_completed = task.completed
             await self.db.delete(task)
-            await self.db.commit()
+            await self.db.flush()
             return True, is_task_completed
         return False, None
     
-    async def manage_old_tasks(self, user_id: int, new_tasks_count=1):
-        active_tasks = await self.get_active_tasks(user_id)
-        tasks_to_complete = len(active_tasks) + new_tasks_count - 10
-        if tasks_to_complete > 0:
-            for task in sorted(active_tasks, key=lambda x: x.created_at)[:tasks_to_complete]:
-                task.completed = True
-            await self.update_or_create_counter(user_id, completed_increment=tasks_to_complete)
-            await self.db.commit()
+    
     
