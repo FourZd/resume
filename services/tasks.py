@@ -39,7 +39,7 @@ class TaskService:
         if task:
             await self.repository.update_or_create_counter(self.user_id, completed_increment=1)
             await self.repository.commit_changes()
-        return task
+        return task[0]
 
     async def remove_task(self, task_id: int):
         success, is_task_completed = await self.repository.delete_task(task_id, self.user_id)
