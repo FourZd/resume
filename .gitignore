@@ -11,3 +11,4 @@ __pycache__/main.cpython-312.pyc
 models/__pycache__/TaskCount.cpython-312.pyc
 alembic/versions/__pycache__/94b734d7ab46_make_task_counters.cpython-312.pyc
 alembic/versions/__pycache__/3317c4fb1bf9_add_counter.cpython-312.pyc
+repository/__pycache__/task_repository.cpython-312.pyc

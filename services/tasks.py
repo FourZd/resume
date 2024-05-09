@@ -1,55 +1,47 @@
-from datetime import datetime
-from typing import List
+from repository.task_repository import TaskRepository
 from sqlalchemy.ext.asyncio import AsyncSession
-from models.TaskModel import Task
-from models.TaskCount import TaskCounter
-from sqlalchemy.future import select
-from sqlalchemy import func
+from typing import List
 
 
-async def create_tasks(descriptions: List[str], user_id: int, db: AsyncSession):
-    task_counter = await db.scalar(
-        select(TaskCounter).where(TaskCounter.user_id == user_id)
-    )
-    if not task_counter:
-        task_counter = TaskCounter(user_id=user_id, total_created=0, total_completed=0)
-        db.add(task_counter)
-        await db.commit()
+class TaskService:
+    def __init__(self, repository: TaskRepository, user_id: int):
+        self.repository = repository
+        self.user_id = user_id
 
-    current_active_count = await db.scalar(
-        select(func.count())
-        .select_from(Task)
-        .where(Task.user_id == user_id, Task.completed == False)
-    )
-    available_slots = 10 - current_active_count
+    async def get_tasks_summary(self):
+        task_counter = await self.repository.get_task_counter(self.user_id)
+        active_tasks = await self.repository.get_active_tasks(self.user_id)
+        return {
+            "active_tasks": active_tasks,
+            "created_count": task_counter.total_created if task_counter else 0,
+            "completed_count": task_counter.total_completed if task_counter else 0
+        }
+    
+    async def add_task(self, description: str):
+        task = await self.repository.create_task(self.user_id, description)
+        await self.repository.update_or_create_counter(self.user_id, created_increment=1)
+        return task
 
-    tasks_to_complete = len(descriptions) - available_slots
-    if tasks_to_complete > 0:
-        oldest_tasks = await db.execute(
-            select(Task)
-            .where(Task.user_id == user_id, Task.completed == False)
-            .order_by(Task.created_at)
-            .limit(tasks_to_complete)
-        )
-        for task in oldest_tasks.scalars().all():
-            task.completed = True
-            task_counter.total_completed += 1
-
-    tasks = []
-    for description in descriptions:
-        task = Task(
-            user_id=user_id,
-            description=description,
-            created_at=datetime.now(),
-            completed=False,
-        )
-        db.add(task)
-        tasks.append(task)
-
-    task_counter.total_created += len(descriptions)
-    await db.commit()
-
-    if len(tasks) == 1:
-        return tasks[0]
-    else:
+    async def add_multiple_tasks(self, descriptions: List[str]):
+        if len(descriptions) != 5:
+            raise ValueError("Exactly 5 descriptions are required")
+        tasks = await self.repository.create_tasks(self.user_id, descriptions)
+        await self.repository.update_or_create_counter(self.user_id, created_increment=len(descriptions))
         return tasks
+        
+    async def complete_task(self, task_id: int):
+        task = await self.repository.update_task_completion(task_id, self.user_id)
+        if task:
+            await self.repository.update_or_create_counter(self.user_id, completed_increment=1)
+        return task
+
+    async def remove_task(self, task_id: int):
+        success, is_task_completed = await self.repository.delete_task(task_id, self.user_id)
+        if success:
+            await self.repository.update_or_create_counter(self.user_id, created_increment=-1, completed_increment=-1 if is_task_completed else 0)
+        return success
+
+
+async def get_task_service(db: AsyncSession, user_id: int) -> TaskService:
+    repository = TaskRepository(db)
+    return TaskService(repository, user_id)
